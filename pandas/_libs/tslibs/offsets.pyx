@@ -345,9 +345,11 @@ cdef _determine_offset(kwds):
             "instead."
         )
 
-    _kwds_use_relativedelta = ('years', 'months', 'weeks', 'days',
-                               'year', 'month', 'week', 'day', 'weekday',
-                               'hour', 'minute', 'second', 'microsecond')
+    _kwds_use_relativedelta = (
+        'year', 'month', 'day', 'hour', 'minute',
+        'second', 'microsecond', 'weekday', 'years', 'months', 'weeks', 'days',
+        'hours', 'minutes', 'seconds', 'microseconds'
+    )
 
     # Use relativedelta only if all kwds are valid arguments for relativedelta.
     if all(k in _kwds_use_relativedelta for k in kwds_no_nanos):
