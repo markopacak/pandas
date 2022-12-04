@@ -301,6 +301,16 @@ cdef _determine_offset(kwds):
     # timedelta is used for sub-daily plural offsets and all singular
     # offsets, relativedelta is used for plural offsets of daily length or
     # more, nanosecond(s) are handled by apply_wraps
+    use_relativedelta = False
+
+    if len(kwds) == 0:
+        # GH 45643/45890: (historically) defaults to 1 day
+        return timedelta(days=1), use_relativedelta
+
+    _nanos = ('nanosecond', 'nanoseconds')
+    if all(k in _nanos for k in kwds):
+        return timedelta(days=0), use_relativedelta
+
     kwds_no_nanos = dict(
         (k, v) for k, v in kwds.items()
         if k not in ('nanosecond', 'nanoseconds')
@@ -310,8 +320,6 @@ cdef _determine_offset(kwds):
     _kwds_use_relativedelta = ('years', 'months', 'weeks', 'days',
                                'year', 'month', 'week', 'day', 'weekday',
                                'hour', 'minute', 'second', 'microsecond')
-
-    use_relativedelta = False
 
     if len(kwds_no_nanos) > 0:
         if "milliseconds" in kwds_no_nanos:
@@ -330,8 +338,6 @@ cdef _determine_offset(kwds):
         else:
             # sub-daily offset - use timedelta (tz-aware)
             offset = timedelta(**kwds_no_nanos)
-    elif any(nano in kwds for nano in ('nanosecond', 'nanoseconds')):
-        offset = timedelta(days=0)
     else:
         # GH 45643/45890: (historically) defaults to 1 day for non-nano
         # since datetime.timedelta doesn't handle nanoseconds
