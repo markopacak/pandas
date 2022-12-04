@@ -298,9 +298,27 @@ _relativedelta_kwds = {"years", "months", "weeks", "days", "year", "month",
 
 
 cdef _determine_offset(kwds):
-    # timedelta is used for sub-daily plural offsets and all singular
-    # offsets, relativedelta is used for plural offsets of daily length or
-    # more, nanosecond(s) are handled by apply_wraps
+    """
+    Determine offset by using either dateutil.relativedelta.relativedelata or
+    datetime.timedelta.
+
+    Notes:
+    - n is handled directly by BaseOffset; it won't be passed here.
+    - Nanosecond(s) are handled by apply_wraps (see RelativeDeltaOffset._apply).
+    - Millsecond (sing) cannot be handled by either timedelta or relativedelta.
+
+    Parameters
+    ----------
+    kwds: dict
+        arguments
+
+    Returns
+    ----------
+    timedelta or relativedelta
+        the offset
+    bool
+        True if relativedelta is returned
+    """
     use_relativedelta = False
 
     if len(kwds) == 0:
@@ -308,23 +326,17 @@ cdef _determine_offset(kwds):
         return timedelta(days=1), use_relativedelta
 
     _nanos = ('nanosecond', 'nanoseconds')
+
+    # nanos will be handled by apply_wraps.
+    # See RelativeDeltaOffset._apply
     if all(k in _nanos for k in kwds):
         return timedelta(days=0), use_relativedelta
 
-    _kwds_use_relativedelta = ('years', 'months', 'weeks', 'days',
-                               'year', 'month', 'week', 'day', 'weekday',
-                               'hour', 'minute', 'second', 'microsecond')
-
-    # All kwds except the 'nanos', because we handled the nanos above
     # TODO: Are nanosecond and nanoseconds allowed somewhere?
-    kwds_no_nanos = dict(
-        (k, v) for k, v in kwds.items()
-        if k not in _nanos
-    )
+    kwds_no_nanos = {k: v for k, v in kwds.items() if k not in _nanos}
 
-    if "milliseconds" in kwds_no_nanos:
-        return timedelta(**kwds_no_nanos), use_relativedelta
-
+    # Special case: "millisecond" (sing)
+    # TODO perhaps we can do the suggested conversion ourselves?
     if "millisecond" in kwds_no_nanos:
         raise NotImplementedError(
             "Using DateOffset to replace `millisecond` component in "
@@ -332,11 +344,18 @@ cdef _determine_offset(kwds):
             "`microsecond=timestamp.microsecond % 1000 + ms * 1000` "
             "instead."
         )
-    if any(k in _kwds_use_relativedelta for k in kwds_no_nanos):
+
+    _kwds_use_relativedelta = ('years', 'months', 'weeks', 'days',
+                               'year', 'month', 'week', 'day', 'weekday',
+                               'hour', 'minute', 'second', 'microsecond')
+
+    # Use relativedelta only if all kwds are valid arguments for relativedelta.
+    if all(k in _kwds_use_relativedelta for k in kwds_no_nanos):
         offset = relativedelta(**kwds_no_nanos)
         use_relativedelta = True
     else:
-        # sub-daily offset - use timedelta (tz-aware)
+        # Sub-daily offset - use timedelta (tz-aware).
+        # This also handles "milliseconds" (plur): see GH 49897
         offset = timedelta(**kwds_no_nanos)
 
     return offset, use_relativedelta
