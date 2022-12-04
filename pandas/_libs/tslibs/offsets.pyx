@@ -311,37 +311,34 @@ cdef _determine_offset(kwds):
     if all(k in _nanos for k in kwds):
         return timedelta(days=0), use_relativedelta
 
-    kwds_no_nanos = dict(
-        (k, v) for k, v in kwds.items()
-        if k not in ('nanosecond', 'nanoseconds')
-    )
-    # TODO: Are nanosecond and nanoseconds allowed somewhere?
-
     _kwds_use_relativedelta = ('years', 'months', 'weeks', 'days',
                                'year', 'month', 'week', 'day', 'weekday',
                                'hour', 'minute', 'second', 'microsecond')
 
-    if len(kwds_no_nanos) > 0:
-        if "milliseconds" in kwds_no_nanos:
-            return timedelta(**kwds_no_nanos), use_relativedelta
+    # All kwds except the 'nanos', because we handled the nanos above
+    # TODO: Are nanosecond and nanoseconds allowed somewhere?
+    kwds_no_nanos = dict(
+        (k, v) for k, v in kwds.items()
+        if k not in _nanos
+    )
 
-        if "millisecond" in kwds_no_nanos:
-            raise NotImplementedError(
-                "Using DateOffset to replace `millisecond` component in "
-                "datetime object is not supported. Use "
-                "`microsecond=timestamp.microsecond % 1000 + ms * 1000` "
-                "instead."
-            )
-        if any(k in _kwds_use_relativedelta for k in kwds_no_nanos):
-            offset = relativedelta(**kwds_no_nanos)
-            use_relativedelta = True
-        else:
-            # sub-daily offset - use timedelta (tz-aware)
-            offset = timedelta(**kwds_no_nanos)
+    if "milliseconds" in kwds_no_nanos:
+        return timedelta(**kwds_no_nanos), use_relativedelta
+
+    if "millisecond" in kwds_no_nanos:
+        raise NotImplementedError(
+            "Using DateOffset to replace `millisecond` component in "
+            "datetime object is not supported. Use "
+            "`microsecond=timestamp.microsecond % 1000 + ms * 1000` "
+            "instead."
+        )
+    if any(k in _kwds_use_relativedelta for k in kwds_no_nanos):
+        offset = relativedelta(**kwds_no_nanos)
+        use_relativedelta = True
     else:
-        # GH 45643/45890: (historically) defaults to 1 day for non-nano
-        # since datetime.timedelta doesn't handle nanoseconds
-        offset = timedelta(days=1)
+        # sub-daily offset - use timedelta (tz-aware)
+        offset = timedelta(**kwds_no_nanos)
+
     return offset, use_relativedelta
 
 
