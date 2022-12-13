@@ -310,14 +310,13 @@ cdef _determine_offset(kwds):
 
     kwds_no_nanos = {k: v for k, v in kwds.items() if k not in _nanos}
 
-    # TODO perhaps we can do the suggested conversion ourselves?
     if "millisecond" in kwds_no_nanos:
-        raise NotImplementedError(
-            "Using DateOffset to replace `millisecond` component in "
-            "datetime object is not supported. Use "
-            "`microsecond=timestamp.microsecond % 1000 + ms * 1000` "
-            "instead."
-        )
+        micro = kwds_no_nanos.pop("millisecond") * 1000
+        kwds_no_nanos["microsecond"] = kwds_no_nanos.get("microsecond", 0) + micro
+
+    if "milliseconds" in kwds_no_nanos:
+        micro = kwds_no_nanos.pop("milliseconds") * 1000
+        kwds_no_nanos["microseconds"] = kwds_no_nanos.get("microseconds", 0) + micro
 
     kwds_use_relativedelta = {
         "year", "month", "day", "hour", "minute",
